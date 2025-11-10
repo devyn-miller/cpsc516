@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Inbox Classifier Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Simple transition for modals and toast */
+        .fade-in { animation: fadeIn 0.3s ease-out; }
+        .fade-out { animation: fadeOut 0.3s ease-in forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        @keyframes fadeOut { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.95); } }
+        
+        /* Transition for list items */
+        .list-item-enter {
+            animation: listItemEnter 0.5s ease-out;
+        }
+        @keyframes listItemEnter {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* Hide scrollbar but allow scrolling */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="h-full font-sans text-gray-800">
+    <div class="flex flex-col h-full max-w-4xl mx-auto bg-white shadow-2xl">
+
+        <!-- Header -->
+        <header class="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
+            <h1 class="text-2xl font-bold text-gray-900">AI-Powered Inbox</h1>
+            <div class="flex items-center space-x-3">
+                <!-- G18: Notify users about changes -->
+                <button id="what-new-btn" title="What's New" class="relative text-gray-500 hover:text-blue-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341A6.002 6.002 0 006 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                    <!-- Notification dot -->
+                    <span class="absolute top-0 right-0 block w-3 h-3 bg-red-500 border-2 border-white rounded-full"></span>
+                </button>
+
+                <!-- G17: Provide global controls -->
+                <button id="settings-btn" title="Settings" class="text-gray-500 hover:text-blue-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Message List -->
+        <main id="message-list-container" class="flex-1 p-4 overflow-y-auto no-scrollbar">
+            <!-- Messages will be dynamically injected here -->
+        </main>
+
+        <!-- G14: Update and adapt cautiously -->
+        <!-- This button simulates a new message arriving *after* a correction,
+             demonstrating that the AI applies new rules cautiously to *new*
+             items, not disruptively re-sorting the existing list. -->
+        <footer class="p-4 border-t border-gray-200 bg-gray-50">
+            <button id="add-message-btn" class="w-full px-4 py-2 font-semibold text-white bg-blue-600 rounded-lg shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
+                Simulate New Message Arrival
+            </button>
+        </footer>
+    </div>
+
+    <!-- G1, G2: Welcome Modal -->
+    <div id="welcome-modal" class="fixed inset-0 z-10 flex items-center justify-center p-4 bg-black bg-opacity-50 fade-in">
+        <div class="w-full max-w-lg p-6 bg-white rounded-lg shadow-xl">
+            <!-- G1: Make clear what the system can do -->
+            <h2 class="mb-4 text-2xl font-bold">Welcome to your AI Inbox!</h2>
+            <p class="mb-4 text-gray-700">This AI assistant helps you by automatically sorting new messages into three categories:</p>
+            <ul class="mb-4 ml-5 list-disc space-y-1">
+                <li><span class="font-semibold text-red-600">🔥 Urgent:</span> Time-sensitive items that need your immediate attention.</li>
+                <li><span class="font-semibold text-yellow-600">⭐ Important:</span> Work or personal items that are important but not urgent.</li>
+                <li><span class="font-semibold text-gray-600">🏷️ Promotions:</span> Newsletters, sales, and other bulk mail.</li>
+            </ul>
+            
+            <!-- G2: Make clear how well the system can do what it can do -->
+            <h3 class="mb-2 text-lg font-semibold">Managing Expectations</h3>
+            <p class="mb-4 text-sm text-gray-600">
+                Our AI is pretty good, but it's not perfect! It's ~90% accurate on 'Promotions', but only ~70% accurate at distinguishing 'Urgent' from 'Important'.
+                <br><br>
+                It learns from your corrections, so please help it improve!
+            </p>
+            
+            <!-- G6: Mitigate social biases (Acknowledging it) -->
+            <p class="mb-4 text-xs italic text-gray-500">
+                Note on Bias (G6): We are constantly working to remove social biases from our training data. If you see any, please report it.
+            </p>
+
+            <button id="close-welcome-btn" class="w-full px-4 py-2 font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700">Get Started</button>
+        </div>
+    </div>
+
+    <!-- G17, G13: Settings Modal -->
+    <div id="settings-modal" class="fixed inset-0 z-10 items-center justify-center p-4 bg-black bg-opacity-50 fade-in" style="display: none;">
+        <div class="w-full max-w-lg p-6 bg-white rounded-lg shadow-xl">
+            <h2 class="mb-4 text-2xl font-bold">Settings</h2>
+            
+            <!-- G17: Provide global controls -->
+            <div class="flex items-center justify-between p-4 bg-gray-100 rounded-lg">
+                <label for="ai-toggle" class="font-semibold text-gray-800">Enable AI Sorting</label>
+                <div class="relative inline-block w-10 mr-2 align-middle transition duration-200 ease-in select-none">
+                    <input type="checkbox" name="ai-toggle" id="ai-toggle" class="absolute block w-6 h-6 bg-white border-4 rounded-full appearance-none cursor-pointer toggle-checkbox" checked/>
+                    <label for="ai-toggle" class="block h-6 overflow-hidden bg-gray-300 rounded-full cursor-pointer toggle-label"></label>
+                </div>
+                <style>
+                    .toggle-checkbox:checked { right: 0; border-color: #2563EB; }
+                    .toggle-checkbox:checked + .toggle-label { background-color: #2563EB; }
+                </style>
+            </div>
+            <p class="mt-2 mb-4 text-sm text-gray-600">Turn this off to see all messages in a single, unsorted list.</p>
+
+            <!-- G13: Learn from user behavior -->
+            <h3 class="mb-2 text-lg font-semibold">Learned Rules (G13)</h3>
+            <div id="learned-rules-list" class="p-4 text-sm bg-gray-100 rounded-lg h-32 overflow-y-auto no-scrollbar">
+                <p class="italic text-gray-500">No learned rules yet. Correct a message to create one!</p>
+            </div>
+
+            <button id="close-settings-btn" class_="w-full px-4 py-2 mt-6 font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700">Close</button>
+        </div>
+    </div>
+    
+    <!-- G18: What's New Modal -->
+    <div id="what-new-modal" class="fixed inset-0 z-10 items-center justify-center p-4 bg-black bg-opacity-50 fade-in" style="display: none;">
+        <div class="w-full max-w-lg p-6 bg-white rounded-lg shadow-xl">
+            <h2 class="mb-4 text-2xl font-bold">What's New? (G18)</h2>
+            <p class="text-gray-700">
+                <strong>Model Update (Oct 28, 2025):</strong><br>
+                Our AI model just got an update! It is now 5% better at correctly identifying 'Urgent' messages containing calendar invites.
+            </p>
+            <button id="close-what-new-btn" class="w-full px-4 py-2 mt-6 font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700">Got it!</button>
+        </div>
+    </div>
+    
+    <!-- G16: Convey the consequences of user actions -->
+    <div id="toast-notification" class="fixed z-20 p-4 font-semibold text-white bg-green-600 rounded-lg shadow-lg bottom-5 right-5 fade-out" style="display: none; pointer-events: none;">
+        Feedback saved!
+    </div>
+
+    <script>
+        // --- DATA ---
+        let toyMessages = [
+            { id: 1, sender: 'IT Support', subject: 'CRITICAL: Server is down!', body: 'The main production server is down. Need all hands on deck ASAP. This is not a drill.' },
+            { id: 2, sender: 'Design Team', subject: 'Quick question about the meeting tomorrow', body: 'Hey, are you free to prep for 15 mins before the 10am meeting tomorrow?' },
+            { id: 3, sender: 'Weekly Newsletter', subject: 'Your Weekly Tech Roundup', body: 'Don\'t miss the latest in AI, cloud, and quantum computing...' },
+            { id: 4, sender: 'HR Department', subject: 'Action Required: Update Your Benefits', body: 'Please log in to the portal to update your benefits selection by EOD Friday.' },
+            { id: 5, sender: 'Best Deals', subject: '🎉 50% OFF SUMMER SALE! 🎉', body: 'You don\'t want to miss these hot deals. Click now!' },
+            { id: 6, sender: 'Weekly Newsletter', subject: 'This Week in Science', body: 'A new discovery on Mars! ...' },
+        ];
+        
+        // --- G12/G13: "AI Memory" ---
+        let recentCorrections = {}; // Simulates G12 (short-term)
+        let learnedRules = [];      // Simulates G13 (long-term)
+        
+        // --- G17: Global State ---
+        let state = {
+            aiEnabled: true,
+            hasSeenIntro: localStorage.getItem('hasSeenIntro'),
+            messages: []
+        };
+        
+        // --- TOY AI MODEL ---
+        function classifyMessage(message) {
+            const { sender, subject, body } = message;
+            const fullText = (sender + ' ' + subject + ' ' + body).toLowerCase();
+
+            // --- G12: Remember recent interactions ---
+            // Check short-term memory first before running the model
+            if (recentCorrections[sender]) {
+                const label = recentCorrections[sender];
+                return {
+                    label: label,
+                    confidence: 0.99,
+                    explanation: `User preference (G12)`
+                };
+            }
+
+            // --- "Model" Logic ---
+            if (fullText.includes('urgent') || fullText.includes('critical') || fullText.includes('server is down') || fullText.includes('asap')) {
+                return { label: 'Urgent', confidence: 0.95, explanation: `Keywords: 'critical', 'server down', 'asap'` };
+            }
+            if (fullText.includes('action required') || (fullText.includes('meeting') && fullText.includes('tomorrow'))) {
+                // --- G10: Scope services when in doubt ---
+                // This is a "failure case". The AI is confused.
+                // Is "meeting tomorrow" Urgent or Important? Confidence is low.
+                return { label: 'Important', confidence: 0.60, explanation: `Keywords: 'meeting', 'tomorrow' (Low Confidence)` };
+            }
+            if (fullText.includes('hr department') || fullText.includes('benefits')) {
+                 return { label: 'Important', confidence: 0.85, explanation: `Sender: 'HR Department'` };
+            }
+            if (fullText.includes('newsletter') || fullText.includes('sale') || fullText.includes('deals') || fullText.includes('off')) {
+                return { label: 'Promotions', confidence: 0.92, explanation: `Keywords: 'newsletter', 'sale'` };
+            }
+            
+            return { label: 'Important', confidence: 0.75, explanation: `Default classification` };
+        }
+
+        // --- DOM Elements ---
+        const messageListContainer = document.getElementById('message-list-container');
+        const welcomeModal = document.getElementById('welcome-modal');
+        const settingsModal = document.getElementById('settings-modal');
+        const whatNewModal = document.getElementById('what-new-modal');
+        const aiToggle = document.getElementById('ai-toggle');
+        const learnedRulesList = document.getElementById('learned-rules-list');
+        const toast = document.getElementById('toast-notification');
+        
+        // --- UI LABELS ---
+        const labelsConfig = {
+            'Urgent': { icon: '🔥', color: 'text-red-600', bg: 'bg-red-50' },
+            'Important': { icon: '⭐', color: 'text-yellow-600', bg: 'bg-yellow-50' },
+            'Promotions': { icon: '🏷️', color: 'text-gray-600', bg: 'bg-gray-50' },
+            'Uncertain': { icon: '❓', color: 'text-blue-600', bg: 'bg-blue-50' }
+        };
+
+        // --- RENDER FUNCTION ---
+        function renderMessages() {
+            messageListContainer.innerHTML = ''; // Clear list
+            
+            if (!state.aiEnabled) {
+                // --- G17: Global control is OFF ---
+                const groupEl = createGroupElement('Unsorted (AI Disabled)');
+                state.messages.forEach(msg => {
+                    groupEl.appendChild(createMessageElement(msg, false));
+                });
+                messageListContainer.appendChild(groupEl);
+                return;
+            }
+
+            // --- G17: Global control is ON ---
+            // Classify and group messages
+            const groups = { 'Urgent': [], 'Important': [], 'Promotions': [], 'Uncertain': [] };
+            
+            state.messages.forEach(msg => {
+                if (!msg.classification) {
+                    msg.classification = classifyMessage(msg);
+                }
+                
+                // --- G10: Scope services when in doubt ---
+                // If confidence is low, move to "Uncertain" for user review.
+                if (msg.classification.confidence < 0.65) {
+                    msg.classification.originalLabel = msg.classification.label;
+                    msg.classification.label = 'Uncertain';
+                }
+                
+                groups[msg.classification.label].push(msg);
+            });
+
+            // Render groups
+            ['Urgent', 'Important', 'Uncertain', 'Promotions'].forEach(groupName => {
+                if (groups[groupName].length > 0) {
+                    const groupEl = createGroupElement(groupName);
+                    groups[groupName].forEach(msg => {
+                        groupEl.appendChild(createMessageElement(msg, true));
+                    });
+                    messageListContainer.appendChild(groupEl);
+                }
+            });
+        }
+        
+        function createGroupElement(name) {
+            const el = document.createElement('div');
+            el.className = 'mb-6';
+            const labelInfo = labelsConfig[name] || { icon: '📂', color: 'text-gray-800' };
+            el.innerHTML = `<h2 class="mb-2 text-xs font-semibold tracking-wider text-gray-500 uppercase">${labelInfo.icon} ${name}</h2>`;
+            return el;
+        }
+
+        function createMessageElement(msg, showAiFeatures) {
+            const el = document.createElement('div');
+            const labelInfo = labelsConfig[msg.classification.label] || {};
+            
+            // --- G7: Support efficient invocation (AI runs automatically) ---
+            // --- G8: Support efficient dismissal (User can just ignore) ---
+            el.className = `list-item-enter relative p-4 mb-2 bg-white border ${labelInfo.bg} rounded-lg shadow-sm hover:shadow-md transition-shadow`;
+            el.dataset.id = msg.id;
+
+            let aiFeaturesHtml = '';
+            if (showAiFeatures) {
+                // --- G9, G15: Support efficient correction / Encourage granular feedback ---
+                const options = ['Urgent', 'Important', 'Promotions']
+                    .filter(opt => opt !== msg.classification.label)
+                    .map(opt => `<option value="${opt}">${labelsConfig[opt].icon} Move to ${opt}</option>`)
+                    .join('');
+
+                // --- G11: Make clear why the system did what it did ---
+                aiFeaturesHtml = `
+                    <div class="flex items-center justify-between mt-3 pt-3 border-t border-gray-200">
+                        <div class="text-xs">
+                            <span class="${labelInfo.color} font-semibold">${labelInfo.icon} ${msg.classification.label}</span>
+                            (${msg.classification.confidence * 100}%)
+                            <a href="#" class="ml-2 text-blue-600 underline" onclick="toggleExplanation(event, ${msg.id})">Why?</a>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <select class="correction-select text-xs border-gray-300 rounded-md shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                                <option value="">Correct?</option>
+                                ${options}
+                            </select>
+                        </div>
+                    </div>
+                    <div id="explanation-${msg.id}" class="hidden p-2 mt-2 text-xs text-gray-600 bg-gray-100 rounded">
+                        ${msg.classification.explanation}
+                    </div>
+                `;
+            }
+            
+            let subject = msg.subject;
+            if (msg.classification.label === 'Uncertain') {
+                subject += ` <span class="text-blue-600">(Suggested: ${msg.classification.originalLabel})</span>`;
+            }
+
+            el.innerHTML = `
+                <div class="flex justify-between">
+                    <span class="font-semibold text-gray-900">${msg.sender}</span>
+                    <span class="text-sm text-gray-500">Oct 29</span>
+                </div>
+                <div class="text-sm text-gray-800">${subject}</div>
+                ${aiFeaturesHtml}
+            `;
+            return el;
+        }
+        
+        function toggleExplanation(event, msgId) {
+            event.preventDefault();
+            const el = document.getElementById(`explanation-${msgId}`);
+            el.classList.toggle('hidden');
+        }
+
+        // --- Event Handlers ---
+        
+        // --- G9, G12, G13, G15, G16: Handle Correction ---
+        messageListContainer.addEventListener('change', function(e) {
+            if (e.target.classList.contains('correction-select')) {
+                const newLabel = e.target.value;
+                if (!newLabel) return;
+                
+                const messageEl = e.target.closest('[data-id]');
+                const msgId = parseInt(messageEl.dataset.id);
+                const msg = state.messages.find(m => m.id === msgId);
+
+                // --- G16: Convey the consequences of user actions ---
+                showToast(`Got it! Messages from "${msg.sender}" will now be "${newLabel}".`);
+
+                // --- G12: Remember recent interactions (short-term) ---
+                recentCorrections[msg.sender] = newLabel;
+                
+                // --- G13: Learn from user behavior (long-term) ---
+                const rule = `Rule: Sender "${msg.sender}" is "${newLabel}".`;
+                if (!learnedRules.includes(rule)) {
+                    learnedRules.push(rule);
+                }
+                updateLearnedRulesUI();
+
+                // Update state and re-render
+                msg.classification = classifyMessage(msg); // Re-classify based on new rule
+                renderMessages();
+            }
+        });
+        
+        function showToast(message) {
+            toast.textContent = message;
+            toast.style.display = 'block';
+            toast.classList.remove('fade-out');
+            toast.classList.add('fade-in');
+            
+            setTimeout(() => {
+                toast.classList.remove('fade-in');
+                toast.classList.add('fade-out');
+                setTimeout(() => { toast.style.display = 'none'; }, 300);
+            }, 3000);
+        }
+        
+        function updateLearnedRulesUI() {
+            if (learnedRules.length === 0) {
+                learnedRulesList.innerHTML = `<p class="italic text-gray-500">No learned rules yet. Correct a message to create one!</p>`;
+            } else {
+                learnedRulesList.innerHTML = learnedRules.map(rule => `<div class="p-1">${rule}</div>`).join('');
+            }
+        }
+        
+        // --- G14: Update and adapt cautiously ---
+        document.getElementById('add-message-btn').addEventListener('click', () => {
+            const newMessage = {
+                id: Date.now(),
+                sender: 'Weekly Newsletter',
+                subject: 'Your *NEW* Tech Roundup',
+                body: 'This is a brand new newsletter that just arrived.'
+            };
+            
+            // Check if there's a new rule for this sender
+            if (recentCorrections[newMessage.sender]) {
+                showToast(`New message from "${newMessage.sender}" arrived. Applying your new rule (G14)!`);
+            }
+            
+            state.messages.push(newMessage);
+            renderMessages(); // Will add to the list without re-sorting old items
+        });
+
+        // --- Modal Toggles ---
+        if (!state.hasSeenIntro) {
+            welcomeModal.style.display = 'flex';
+        }
+        document.getElementById('close-welcome-btn').addEventListener('click', () => {
+            welcomeModal.style.display = 'none';
+            localStorage.setItem('hasSeenIntro', 'true');
+        });
+        
+        document.getElementById('settings-btn').addEventListener('click', () => settingsModal.style.display = 'flex');
+        document.getElementById('close-settings-btn').addEventListener('click', () => settingsModal.style.display = 'none');
+        
+        document.getElementById('what-new-btn').addEventListener('click', () => {
+            whatNewModal.style.display = 'flex';
+            // Hide notification dot
+            document.querySelector('#what-new-btn span').style.display = 'none';
+        });
+        document.getElementById('close-what-new-btn').addEventListener('click', () => whatNewModal.style.display = 'none');
+
+        // --- G17: Global Toggle Handler ---
+        aiToggle.addEventListener('change', (e) => {
+            state.aiEnabled = e.target.checked;
+            renderMessages();
+        });
+
+        // --- Initial Load ---
+        function initializeApp() {
+            state.messages = [...toyMessages];
+            renderMessages();
+        }
+        
+        initializeApp();
+
+    </script>
+</body>
+</html>
